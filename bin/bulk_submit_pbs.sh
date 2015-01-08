@@ -47,7 +47,7 @@ then
   tile_list_cmd="cat \"$tile_list_path\""
 else
   # WKT involves passing the string to cli_utilities.py
-  tile_list_cmd="python cli_utilities.py get_tile_indexes \"$3\""
+  tile_list_cmd="python -m agdc.cli_utilities get_tile_indexes \"$3\""
 fi
 
 pbs_header=`readlink -f $1`

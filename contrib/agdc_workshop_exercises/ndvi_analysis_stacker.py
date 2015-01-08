@@ -13,7 +13,7 @@ from osgeo import gdal
 
 from agdc.stacker import Stacker
 from EOtools.utils import log_multiline
-import EOtools.stats.temporal_stats
+from EOtools.stats import temporal_stats
 
 SCALE_FACTOR = 10000
 
@@ -145,7 +145,7 @@ if __name__ == '__main__':
         stats_dataset_path = vrt_stack_path.replace('.vrt', '_stats_envi')
         
         # Calculate and write the stats
-        temporal_stats_numexpr_module.main(vrt_stack_path, stats_dataset_path,
+        temporal_stats.main(vrt_stack_path, stats_dataset_path,
                                                noData=stack_info_dict[vrt_stack_path][0]['nodata_value'],
                                                provenance=True)
                                                
