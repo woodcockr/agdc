@@ -14,6 +14,7 @@ from osgeo import gdal
 from agdc.stacker import Stacker
 from EOtools.utils import log_multiline
 from EOtools.stats import temporal_stats
+from agdc import BandLookup
 
 SCALE_FACTOR = 10000
 
@@ -39,10 +40,18 @@ class NDVIStacker(Stacker):
 
         output_dataset_dict = {}
         nbar_dataset_info = input_dataset_dict['NBAR'] # Only need NBAR data for NDVI
-        
+
+        # Instantiate band lookup object with all required lookup parameters
+        lookup = BandLookup(data_cube=self,
+                            lookup_scheme_name='LANDSAT-LS5/7',
+                            tile_type_id=tile_type_info['tile_type_id'],
+                            satellite_tag=nbar_dataset_info['satellite_tag'],
+                            sensor_name=nbar_dataset_info['sensor_name'],
+                            level_name=nbar_dataset_info['level_name']
+                            )
+
         nbar_dataset_path = nbar_dataset_info['tile_pathname']
         
-
         # Get a boolean mask from the PQA dataset (use default parameters for mask and dilation)
         pqa_mask = self.get_pqa_mask(input_dataset_dict['PQA']['tile_pathname']) 
         
@@ -69,16 +78,21 @@ class NDVIStacker(Stacker):
         output_dataset_info['band_tag'] = 'NDVI-PQA'
         output_dataset_info['tile_layer'] = 1
 
-        # NBAR bands into 2D NumPy arrays. 
-        near_ir_band_data = nbar_dataset.GetRasterBand(4).ReadAsArray() # Near Infrared light
-        visible_band_data = nbar_dataset.GetRasterBand(3).ReadAsArray() # Red Visible Light
 
+        # Calculate NDVI here
+        # Remember band indices are one-based
+        try:
+          # Read and adjust arrays for NIR and R
+          NIR_array = nbar_dataset.GetRasterBand(lookup.band_no['NIR']).ReadAsArray() * lookup.adjustment_multiplier['NIR'] + lookup.adjustment_offset['NIR'] * SCALE_FACTOR
+          R_array = nbar_dataset.GetRasterBand(lookup.band_no['R']).ReadAsArray() * lookup.adjustment_multiplier['R'] + lookup.adjustment_offset['R'] * SCALE_FACTOR
+        except TypeError:   
+          return
+          
         # Calculate NDVI for every element in the array using
         # ((NIR - VIS) / (NIR + VIS)) * SCALE_FACTOR
-        # HINT - Use numpy.true_divide(numerator, denominator) to avoid divide by 0 errors
-        data_array = numpy.zeros((tile_type_info['x_pixels'], tile_type_info['y_pixels'])) # Replace this with your NDVI calculation
-        
-        
+        # HINT - Use numpy.true_divide(numerator, denominator) to avoid divide by 0 errors                
+        data_array = numpy.zeros((tile_type_info['x_pixels'], tile_type_info['y_pixels']))
+              
         self.apply_pqa_mask(data_array, pqa_mask, no_data_value)
         
         # Create our output file
