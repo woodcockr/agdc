@@ -53,9 +53,28 @@ class NDVIStacker(Stacker):
         nbar_dataset_path = nbar_dataset_info['tile_pathname']
         
         # Get a boolean mask from the PQA dataset (use default parameters for mask and dilation)
-        # TODO: Need to find out about the RBQ500 band in MODIS - what are the masking parameters in it?        
-        #pqa_mask = self.get_pqa_mask(input_dataset_dict['RBQ500']['tile_pathname']) 
+        # TODO: Need to find out about the RBQ500 band in MODIS - what are the masking parameters in it? 
+        pqa_dataset_path = input_dataset_dict['RBQ500']['tile_pathname']
+        pqa_gdal_dataset = gdal.Open(pqa_dataset_path)
         
+
+        
+        assert pqa_gdal_dataset, 'Unable to open PQA GeoTIFF file %s' % pqa_dataset_path
+        pqa_array = pqa_gdal_dataset.GetRasterBand(1).ReadAsArray()
+        del pqa_gdal_dataset
+
+        log_multiline(logger.debug, pqa_array.shape, 'pqa_array', '\t')
+        
+        pqa_array = pqa_array.astype(numpy.uint64, copy=False)
+        
+        log_multiline(logger.debug, pqa_array.shape, 'pqa_array_uint64', '\t')
+ 
+        pqa_array = (pqa_array & 2097152) 
+        log_multiline(logger.debug, pqa_array, 'pqa_array_mask', '\t')
+        pqa_mask = numpy.zeros(pqa_array.shape, dtype=numpy.bool)
+        pqa_mask[pqa_array == 0] = True        
+ 
+       
         nbar_dataset = gdal.Open(nbar_dataset_path)
         assert nbar_dataset, 'Unable to open dataset %s' % nbar_dataset
         logger.debug('Opened NBAR dataset %s', nbar_dataset_path)
@@ -95,7 +114,7 @@ class NDVIStacker(Stacker):
         data_array = numpy.true_divide(NIR_array - R_array, NIR_array + R_array) * SCALE_FACTOR
               
         # TODO: When MOD09 RBQ band format understood fix this
-        # self.apply_pqa_mask(data_array, pqa_mask, no_data_value)
+        self.apply_pqa_mask(data_array, pqa_mask, no_data_value)
         
         # Create our output file
         gdal_driver = gdal.GetDriverByName(tile_type_info['file_format'])
